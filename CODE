@@ -1,0 +1,65 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import classification_report, confusion_matrix
+import zipfile
+import io # Import the io module to work with in-memory file-like objects
+
+# Load the dataset
+url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-additional.zip'
+# Fetch the zip file
+import requests
+response = requests.get(url)
+
+# Extract the zip file in memory
+with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+    # Assuming 'bank-additional/bank-additional-full.csv' is the file you need
+    with z.open('bank-additional/bank-additional-full.csv') as f:
+        bank_df = pd.read_csv(f, sep=';')
+
+# Display the first few rows
+print(bank_df.head())
+
+
+# Check for missing values
+print(bank_df.isnull().sum())
+
+# Define features and target variable
+X = bank_df.drop('y', axis=1)
+y = bank_df['y']
+
+# Encode categorical variables
+categorical_features = X.select_dtypes(include=['object']).columns.tolist()
+numeric_features = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
+
+# Define preprocessing for numerical columns (scale them)
+numeric_transformer = StandardScaler()
+
+# Define preprocessing for categorical columns (encode them)
+categorical_transformer = OneHotEncoder(handle_unknown='ignore')
+
+# Create preprocessor
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)])
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create and train the decision tree classifier
+clf = Pipeline(steps=[('preprocessor', preprocessor),
+                      ('classifier', DecisionTreeClassifier(random_state=42))])
+
+# Fit the model
+clf.fit(X_train, y_train)
+
+# Make predictions
+y_pred = clf.predict(X_test)
+
+# Evaluate the model
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
